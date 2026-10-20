@@ -1,0 +1,6 @@
+---
+- name: Install Java and rsync
+  become: true
+  apt:
+    name: [openjdk-17-jre-headless, rsync]
+    update_cache: true

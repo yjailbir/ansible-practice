@@ -1,39 +1,21 @@
 ---
-- name: Build application
-  hosts: build
-
-  tasks:
-    - name: Install build tools
-      become: true
-      apt:
-        name: [ openjdk-17-jdk-headless, git, curl, rsync ]
-        update_cache: true
-
-    - name: Clone project
-      git:
-        repo: https://github.com/spring-projects/spring-petclinic.git
-        dest: /home/ubuntu/petclinic
-
-    - name: Build project
-      shell: cd /home/ubuntu/petclinic && ./mvnw package -DskipTests && cp target/*.jar app.jar
-
-    - name: Copy application to production
-      command: rsync -av /home/ubuntu/petclinic/app.jar ubuntu@{{ item }}:/home/ubuntu/app.jar
-      loop: "{{ groups['production'] }}"
-
 - name: Prepare production
   hosts: production
-
   tasks:
-    - name: Install Java and rsync
-      become: true
-      apt:
-        name: [ openjdk-17-jre-headless, rsync ]
-        update_cache: true
+    - name: Install production tools
+      import_role:
+        name: run_app
+        tasks_from: prepare
+
+- name: Build application
+  hosts: build
+  roles:
+    - build_app
 
 - name: Run application
   hosts: production
-
   tasks:
     - name: Start application
-      shell: nohup java -jar /home/ubuntu/app.jar > /home/ubuntu/app.log 2>&1 < /dev/null &
+      import_role:
+        name: run_app
+        tasks_from: start
