@@ -1,18 +1,25 @@
 ---
 - name: Install build tools
   become: true
-  apt:
+  ansible.builtin.apt:
     name: [openjdk-17-jdk-headless, git, curl, rsync]
     update_cache: true
+    cache_valid_time: 3600
 
 - name: Clone project
-  git:
+  ansible.builtin.git:
     repo: https://github.com/spring-projects/spring-petclinic.git
     dest: /home/ubuntu/petclinic
+    version: main
+  register: build_app_source
+
+- name: Remove old build when sources change
+  ansible.builtin.file:
+    path: /home/ubuntu/petclinic/app.jar
+    state: absent
+  when: build_app_source.changed
 
 - name: Build project
-  shell: cd /home/ubuntu/petclinic && ./mvnw package -DskipTests && cp target/*.jar app.jar
-
-- name: Copy application to production
-  command: rsync -av /home/ubuntu/petclinic/app.jar ubuntu@{{ item }}:/home/ubuntu/app.jar
-  loop: "{{ groups['production'] }}"
+  ansible.builtin.shell: cd /home/ubuntu/petclinic && ./mvnw package -DskipTests && cp target/*.jar app.jar
+  args:
+    creates: /home/ubuntu/petclinic/app.jar

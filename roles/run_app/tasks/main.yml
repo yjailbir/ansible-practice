@@ -1,6 +1,6 @@
 ---
 - name: Prepare production
-  import_tasks: prepare.yml
+  ansible.builtin.import_tasks: prepare.yml
 
 - name: Start application
-  import_tasks: start.yml
+  ansible.builtin.import_tasks: start.yml

@@ -1,3 +1,23 @@
 ---
+- name: Copy application to production
+  ansible.posix.synchronize:
+    src: /home/ubuntu/petclinic/app.jar
+    dest: /home/ubuntu/app.jar
+    checksum: true
+    times: false
+  delegate_to: "{{ groups['build'][0] }}"
+  register: run_app_copy
+
 - name: Start application
-  shell: nohup java -jar /home/ubuntu/app.jar > /home/ubuntu/app.log 2>&1 < /dev/null &
+  ansible.builtin.shell: |
+    set -e
+    pattern='^java -jar /home/ubuntu/app[.]jar$'
+    if [ "{{ run_app_copy.changed }}" = "True" ]; then
+      pkill -u "$(id -u)" -f "$pattern" || test "$?" -eq 1
+      while pgrep -u "$(id -u)" -f "$pattern" > /dev/null; do sleep 1; done
+    fi
+    if pgrep -u "$(id -u)" -f "$pattern" > /dev/null; then exit 0; fi
+    nohup java -jar /home/ubuntu/app.jar > /home/ubuntu/app.log 2>&1 < /dev/null &
+    echo started
+  register: run_app_result
+  changed_when: "'started' in run_app_result.stdout_lines"
