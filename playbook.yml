@@ -1,39 +1,56 @@
 ---
-- name: Build application
-  hosts: build
-
-  tasks:
-    - name: Install build tools
-      become: true
-      apt:
-        name: [ openjdk-17-jdk-headless, git, curl, rsync ]
-        update_cache: true
-
-    - name: Clone project
-      git:
-        repo: https://github.com/spring-projects/spring-petclinic.git
-        dest: /home/ubuntu/petclinic
-
-    - name: Build project
-      shell: cd /home/ubuntu/petclinic && ./mvnw package -DskipTests && cp target/*.jar app.jar
-
-    - name: Copy application to production
-      command: rsync -av /home/ubuntu/petclinic/app.jar ubuntu@{{ item }}:/home/ubuntu/app.jar
-      loop: "{{ groups['production'] }}"
-
 - name: Prepare production
   hosts: production
 
   tasks:
     - name: Install Java and rsync
       become: true
-      apt:
-        name: [ openjdk-17-jre-headless, rsync ]
+      ansible.builtin.apt:
+        name: [ openjdk-17-jre-headless, rsync, procps ]
         update_cache: true
+        cache_valid_time: 3600
+
+- name: Build application
+  hosts: build
+
+  tasks:
+    - name: Install build tools
+      become: true
+      ansible.builtin.apt:
+        name: [ openjdk-17-jdk-headless, git, curl, rsync ]
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Clone project
+      ansible.builtin.git:
+        repo: https://github.com/spring-projects/spring-petclinic.git
+        dest: /home/ubuntu/petclinic
+        version: main
+      register: build_app_source
+
+    - name: Remove old build when sources change
+      ansible.builtin.file:
+        path: /home/ubuntu/petclinic/app.jar
+        state: absent
+      when: build_app_source.changed
+
+    - name: Build project
+      ansible.builtin.shell: cd /home/ubuntu/petclinic && ./mvnw package -DskipTests && cp target/*.jar app.jar
+      args:
+        creates: /home/ubuntu/petclinic/app.jar
 
 - name: Run application
   hosts: production
 
   tasks:
+    - name: Copy application to production
+      ansible.posix.synchronize:
+        src: /home/ubuntu/petclinic/app.jar
+        dest: /home/ubuntu/app.jar
+        checksum: true
+        times: false
+      delegate_to: "{{ groups['build'][0] }}"
+      register: run_app_copy
+
     - name: Start application
-      shell: nohup java -jar /home/ubuntu/app.jar > /home/ubuntu/app.log 2>&1 < /dev/null &
+      ansible.builtin.shell: nohup java -jar /home/ubuntu/app.jar > /home/ubuntu/app.log 2>&1 < /dev/null &
