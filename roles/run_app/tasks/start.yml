@@ -1,3 +1,12 @@
 ---
+- name: Copy application to production
+  ansible.posix.synchronize:
+    src: /home/ubuntu/petclinic/app.jar
+    dest: /home/ubuntu/app.jar
+    checksum: true
+    times: false
+  delegate_to: "{{ groups['build'][0] }}"
+  register: run_app_copy
+
 - name: Start application
-  shell: nohup java -jar /home/ubuntu/app.jar > /home/ubuntu/app.log 2>&1 < /dev/null &
+  ansible.builtin.shell: nohup java -jar /home/ubuntu/app.jar > /home/ubuntu/app.log 2>&1 < /dev/null &

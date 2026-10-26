@@ -3,7 +3,7 @@
   hosts: production
   tasks:
     - name: Install production tools
-      import_role:
+      ansible.builtin.import_role:
         name: run_app
         tasks_from: prepare
 
@@ -16,6 +16,6 @@
   hosts: production
   tasks:
     - name: Start application
-      import_role:
+      ansible.builtin.import_role:
         name: run_app
         tasks_from: start
